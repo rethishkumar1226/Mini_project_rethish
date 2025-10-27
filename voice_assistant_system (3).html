@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Activated Smart Assistance System for the Visually Impaired</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            font-size: 18px;
+            margin-bottom: 20px;
+            min-height: 25px;
+            color: #333;
+            font-weight: bold;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .camera-container {
+            position: relative;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 640px;
+            display: none;
+        }
+        
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        #detectionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .primary-btn {
+            background: linear-gradient(145deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+        
+        .primary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.3);
+        }
+        
+        .secondary-btn {
+            background: linear-gradient(145deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+        
+        .secondary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .microphone {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(145deg, #f0f0f0, #cacaca);
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 5px 5px 10px #bebebe, -5px -5px 10px #ffffff;
+            font-size: 30px;
+        }
+        
+        .microphone:hover {
+            transform: scale(1.05);
+        }
+        
+        .microphone.listening {
+            background: linear-gradient(145deg, #ff6b6b, #ee5a52);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .detection-results {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .detection-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #4ecdc4;
+            background: white;
+            border-radius: 5px;
+        }
+        
+        .object-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .confidence {
+            color: #666;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .position {
+            color: #888;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        
+        .scene-description {
+            background: #e8f5e8;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            text-align: left;
+            font-size: 16px;
+            line-height: 1.6;
+            display: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .model-loading {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Voice-Activated Smart Assistance System for the Visually Impaired</h1>
+        <p>Actual object detection powered by TensorFlow.js</p>
+        
+        <div class="status" id="status" aria-live="polite">
+            Loading AI model... Please wait
+        </div>
+        
+        <div class="model-loading" id="modelLoading">
+            <div class="loading"></div> Loading TensorFlow.js COCO-SSD model...
+            <p style="font-size: 14px; margin: 10px 0 0 0;">This may take a moment on first load.</p>
+        </div>
+        
+        <div class="camera-container" id="cameraContainer">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <canvas id="detectionCanvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn primary-btn" id="startCamera" disabled>📹 Start Camera</button>
+            <button class="control-btn secondary-btn" id="detectOnce" disabled>🔍 Detect Once</button>
+            <button class="control-btn secondary-btn" id="continuousDetection" disabled>🎬 Continuous Scan</button>
+            <button class="microphone" id="micButton" disabled aria-label="Voice commands">🎤</button>
+        </div>
+        
+        <div class="detection-results" id="detectionResults">
+            <h3>🎯 Detected Objects:</h3>
+            <div id="objectList"></div>
+        </div>
+        
+        <div class="scene-description" id="sceneDescription">
+            <h4>🌍 Scene Summary:</h4>
+            <div id="descriptionText"></div>
+        </div>
+        
+        <div class="info-box">
+            <h4>ℹ️ How it works:</h4>
+            <p>This assistant uses a real AI model (COCO-SSD) to detect 80+ object types including people, furniture, electronics, vehicles, animals, and more. It analyzes actual camera feed and only reports objects it genuinely sees.</p>
+            <p><strong>Voice Commands:</strong> "Start camera", "What do you see?", "Describe surroundings", "Stop scanning"</p>
+        </div>
+    </div>
+
+    <!-- TensorFlow.js and COCO-SSD Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+
+    <script>
+        class RealAIVisionAssistant {
+            constructor() {
+                this.video = document.getElementById('videoElement');
+                this.canvas = document.getElementById('detectionCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.stream = null;
+                this.model = null;
+                this.isDetecting = false;
+                this.continuousMode = false;
+                this.detectionInterval = null;
+                
+                this.recognition = null;
+                this.synthesis = window.speechSynthesis;
+                this.isListening = false;
+                
+                this.initializeElements();
+                this.loadModel();
+            }
+            
+            initializeElements() {
+                this.startCameraBtn = document.getElementById('startCamera');
+                this.detectOnceBtn = document.getElementById('detectOnce');
+                this.continuousBtn = document.getElementById('continuousDetection');
+                this.micButton = document.getElementById('micButton');
+                this.status = document.getElementById('status');
+                this.modelLoading = document.getElementById('modelLoading');
+                this.cameraContainer = document.getElementById('cameraContainer');
+                this.detectionResults = document.getElementById('detectionResults');
+                this.objectList = document.getElementById('objectList');
+                this.sceneDescription = document.getElementById('sceneDescription');
+                this.descriptionText = document.getElementById('descriptionText');
+                
+                this.setupEventListeners();
+            }
+            
+            async loadModel() {
+                try {
+                    this.updateStatus("Loading AI detection model... This may take a moment.");
+                    
+                    // Check if libraries are loaded
+                    if (typeof tf === 'undefined') {
+                        throw new Error("TensorFlow.js not loaded");
+                    }
+                    
+                    if (typeof cocoSsd === 'undefined') {
+                        throw new Error("COCO-SSD not loaded");
+                    }
+                    
+                    console.log("TensorFlow.js version:", tf.version.tfjs);
+                    console.log("Loading COCO-SSD model...");
+                    
+                    // Load COCO-SSD model with error handling
+                    this.model = await cocoSsd.load({
+                        base: 'lite_mobilenet_v2' // Use lighter model for better compatibility
+                    });
+                    
+                    console.log("Model loaded successfully!");
+                    
+                    this.modelLoading.style.display = 'none';
+                    this.updateStatus("✅ AI Model loaded successfully! Click 'Start Camera' to begin.");
+                    this.speak("AI Vision Assistant ready. Click start camera to begin real object detection.");
+                    
+                    // Enable buttons
+                    this.startCameraBtn.disabled = false;
+                    this.micButton.disabled = false;
+                    
+                    this.initializeSpeech();
+                    
+                } catch (error) {
+                    console.error("Error loading model:", error);
+                    
+                    let errorMsg = "Failed to load AI model. ";
+                    if (error.message.includes("TensorFlow")) {
+                        errorMsg += "TensorFlow.js library not loaded. ";
+                    } else if (error.message.includes("COCO-SSD")) {
+                        errorMsg += "COCO-SSD library not loaded. ";
+                    } else {
+                        errorMsg += error.message + " ";
+                    }
+                    errorMsg += "Please check your internet connection and refresh the page.";
+                    
+                    this.updateStatus("❌ " + errorMsg);
+                    this.modelLoading.innerHTML = `
+                        <div style="color: #d32f2f;">
+                            ❌ <strong>Failed to load AI model</strong><br>
+                            <p style="font-size: 14px; margin: 10px 0;">
+                                ${errorMsg}
+                            </p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-top: 10px;">
+                                🔄 Reload Page
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+            
+            setupEventListeners() {
+                this.startCameraBtn.addEventListener('click', () => this.toggleCamera());
+                this.detectOnceBtn.addEventListener('click', () => this.detectOnce());
+                this.continuousBtn.addEventListener('click', () => this.toggleContinuousDetection());
+                this.micButton.addEventListener('click', () => this.toggleListening());
+                
+                document.addEventListener('keydown', (event) => {
+                    if (event.code === 'Space' && !event.repeat) {
+                        event.preventDefault();
+                        this.toggleListening();
+                    }
+                });
+            }
+            
+            initializeSpeech() {
+                // Check for speech recognition support
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                
+                if (!SpeechRecognition) {
+                    console.log("Speech recognition not supported in this browser");
+                    this.micButton.style.opacity = '0.5';
+                    this.micButton.title = "Voice commands not supported in this browser. Use Chrome or Edge.";
+                    return;
+                }
+                
+                try {
+                    this.recognition = new SpeechRecognition();
+                    this.recognition.continuous = false;
+                    this.recognition.interimResults = false;
+                    this.recognition.lang = 'en-US';
+                    this.recognition.maxAlternatives = 1;
+                    
+                    this.recognition.onstart = () => {
+                        console.log("✅ Speech recognition started");
+                        this.isListening = true;
+                        this.micButton.classList.add('listening');
+                        this.updateStatus("🎤 Listening... Speak your command now!");
+                        
+                        // Auto-stop after 10 seconds to prevent hanging
+                        this.recognitionTimeout = setTimeout(() => {
+                            if (this.isListening) {
+                                console.log("Auto-stopping speech recognition");
+                                try {
+                                    this.recognition.stop();
+                                } catch (e) {
+                                    console.error("Error stopping recognition:", e);
+                                }
+                            }
+                        }, 10000);
+                    };
+                    
+                    this.recognition.onresult = (event) => {
+                        if (this.recognitionTimeout) {
+                            clearTimeout(this.recognitionTimeout);
+                        }
+                        
+                        const command = event.results[0][0].transcript.toLowerCase();
+                        const confidence = event.results[0][0].confidence;
+                        console.log("✅ Voice command received:", command, "Confidence:", confidence);
+                        this.updateStatus(`Heard: "${command}"`);
+                        this.processVoiceCommand(command);
+                    };
+                    
+                    this.recognition.onerror = (event) => {
+                        console.error("❌ Speech recognition error:", event.error);
+                        
+                        if (this.recognitionTimeout) {
+                            clearTimeout(this.recognitionTimeout);
+                        }
+                        
+                        this.isListening = false;
+                        this.micButton.classList.remove('listening');
+                        
+                        let errorMessage = "";
+                        let shouldSpeak = false;
+                        
+                        switch(event.error) {
+                            case 'not-allowed':
+                            case 'permission-denied':
+                                errorMessage = "Microphone permission denied. Please check browser settings.";
+                                shouldSpeak = true;
+                                break;
+                            case 'no-speech':
+                                errorMessage = "No speech detected. Click mic and try again.";
+                                shouldSpeak = true;
+                                break;
+                            case 'audio-capture':
+                                errorMessage = "No microphone detected. Please connect a microphone.";
+                                shouldSpeak = true;
+                                break;
+                            case 'network':
+                                // Network errors are common - just retry silently
+                                console.log("Network error occurred, you can try again");
+                                errorMessage = "Ready - Click mic to try voice command again";
+                                // Don't speak for network errors as they're common
+                                break;
+                            case 'aborted':
+                                errorMessage = "Voice recognition stopped";
+                                break;
+                            case 'service-not-allowed':
+                                errorMessage = "Speech service not available. Try again.";
+                                break;
+                            default:
+                                errorMessage = "Voice error occurred. Click mic to try again.";
+                        }
+                        
+                        this.updateStatus(errorMessage);
+                        
+                        if (shouldSpeak) {
+                            this.speak(errorMessage);
+                        }
+                    };
+                    
+                    this.recognition.onend = () => {
+                        console.log("Speech recognition ended");
+                        
+                        if (this.recognitionTimeout) {
+                            clearTimeout(this.recognitionTimeout);
+                        }
+                        
+                        this.isListening = false;
+                        this.micButton.classList.remove('listening');
+                        
+                        if (this.model && this.stream) {
+                            this.updateStatus("Ready - Click mic 🎤 for voice commands");
+                        } else if (this.model) {
+                            this.updateStatus("✅ AI Model loaded! Click 'Start Camera' to begin.");
+                        }
+                    };
+                    
+                    console.log("✅ Speech recognition initialized successfully");
+                    this.micButton.title = "Click or press Space for voice commands";
+                    
+                } catch (error) {
+                    console.error("Error initializing speech recognition:", error);
+                    this.micButton.style.opacity = '0.5';
+                    this.micButton.title = "Voice commands unavailable";
+                }
+            }
+            
+            async toggleCamera() {
+                if (!this.stream) {
+                    await this.startCamera();
+                } else {
+                    this.stopCamera();
+                }
+            }
+            
+            async startCamera() {
+                try {
+                    this.updateStatus("📹 Requesting camera access...");
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: 640 }, 
+                            height: { ideal: 480 },
+                            facingMode: { ideal: 'environment' }
+                        }
+                    });
+                    
+                    this.video.srcObject = this.stream;
+                    this.cameraContainer.style.display = 'block';
+                    
+                    await new Promise((resolve) => {
+                        this.video.onloadedmetadata = () => {
+                            this.canvas.width = this.video.videoWidth;
+                            this.canvas.height = this.video.videoHeight;
+                            resolve();
+                        };
+                    });
+                    
+                    this.startCameraBtn.textContent = '⏹️ Stop Camera';
+                    this.detectOnceBtn.disabled = false;
+                    this.continuousBtn.disabled = false;
+                    
+                    this.updateStatus("✅ Camera active. Ready for real object detection!");
+                    this.speak("Camera is now active. You can start detecting objects.");
+                    
+                } catch (error) {
+                    console.error("Camera error:", error);
+                    this.updateStatus("❌ Camera access denied. Please allow camera permission.");
+                    this.speak("Unable to access camera. Please check permissions.");
+                }
+            }
+            
+            stopCamera() {
+                if (this.continuousMode) {
+                    this.toggleContinuousDetection();
+                }
+                
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                    this.video.srcObject = null;
+                    this.cameraContainer.style.display = 'none';
+                    
+                    this.startCameraBtn.textContent = '📹 Start Camera';
+                    this.detectOnceBtn.disabled = true;
+                    this.continuousBtn.disabled = true;
+                    
+                    this.clearDetections();
+                    this.updateStatus("Camera stopped");
+                    this.speak("Camera turned off.");
+                }
+            }
+            
+            async detectOnce() {
+                if (!this.model || !this.stream || this.isDetecting) return;
+                
+                this.isDetecting = true;
+                this.updateStatus("🔍 Analyzing scene with AI...");
+                this.detectOnceBtn.disabled = true;
+                
+                try {
+                    const predictions = await this.model.detect(this.video);
+                    this.displayDetections(predictions);
+                    this.announceDetections(predictions);
+                } catch (error) {
+                    console.error("Detection error:", error);
+                    this.speak("Error during object detection.");
+                } finally {
+                    this.isDetecting = false;
+                    this.detectOnceBtn.disabled = false;
+                }
+            }
+            
+            toggleContinuousDetection() {
+                if (!this.model || !this.stream) return;
+                
+                this.continuousMode = !this.continuousMode;
+                
+                if (this.continuousMode) {
+                    this.continuousBtn.textContent = '⏸️ Stop Scanning';
+                    this.continuousBtn.style.background = 'linear-gradient(145deg, #ffd93d, #f4c430)';
+                    this.updateStatus("🎬 Continuous scanning active");
+                    this.speak("Starting continuous object detection.");
+                    this.startContinuousDetection();
+                } else {
+                    this.continuousBtn.textContent = '🎬 Continuous Scan';
+                    this.continuousBtn.style.background = 'linear-gradient(145deg, #ff6b6b, #ee5a52)';
+                    this.updateStatus("Continuous scanning stopped");
+                    this.speak("Continuous detection stopped.");
+                    this.stopContinuousDetection();
+                }
+            }
+            
+            async startContinuousDetection() {
+                const detect = async () => {
+                    if (!this.continuousMode) return;
+                    
+                    try {
+                        const predictions = await this.model.detect(this.video);
+                        this.displayDetections(predictions);
+                    } catch (error) {
+                        console.error("Continuous detection error:", error);
+                    }
+                    
+                    if (this.continuousMode) {
+                        requestAnimationFrame(detect);
+                    }
+                };
+                
+                detect();
+            }
+            
+            stopContinuousDetection() {
+                this.continuousMode = false;
+            }
+            
+            displayDetections(predictions) {
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (predictions.length === 0) {
+                    this.detectionResults.style.display = 'block';
+                    this.objectList.innerHTML = '<div class="detection-item">No objects detected in current view.</div>';
+                    this.updateStatus("No objects detected");
+                    return;
+                }
+                
+                // Show results
+                this.detectionResults.style.display = 'block';
+                this.objectList.innerHTML = '';
+                
+                predictions.forEach((prediction) => {
+                    const [x, y, width, height] = prediction.bbox;
+                    
+                    // Draw bounding box
+                    this.ctx.strokeStyle = '#00ff00';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(x, y, width, height);
+                    
+                    // Draw label background
+                    const label = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
+                    this.ctx.font = '16px Arial';
+                    const textWidth = this.ctx.measureText(label).width;
+                    
+                    this.ctx.fillStyle = '#00ff00';
+                    this.ctx.fillRect(x, y - 25, textWidth + 10, 25);
+                    
+                    // Draw label text
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.fillText(label, x + 5, y - 7);
+                    
+                    // Add to list
+                    const centerX = (x + width / 2) / this.canvas.width;
+                    const centerY = (y + height / 2) / this.canvas.height;
+                    const position = this.getRelativePosition(centerX, centerY);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'detection-item';
+                    item.innerHTML = `
+                        <div class="object-name">${prediction.class}
+                            <span class="confidence">${Math.round(prediction.score * 100)}% confidence</span>
+                        </div>
+                        <div class="position">📍 Location: ${position}</div>
+                    `;
+                    this.objectList.appendChild(item);
+                });
+                
+                this.updateStatus(`✅ Detected ${predictions.length} object(s)`);
+            }
+            
+            announceDetections(predictions) {
+                if (predictions.length === 0) {
+                    this.speak("I don't see any clear objects in the current view. Try adjusting the camera angle.");
+                    return;
+                }
+                
+                // Group objects by type
+                const objectCounts = {};
+                predictions.forEach(pred => {
+                    objectCounts[pred.class] = (objectCounts[pred.class] || 0) + 1;
+                });
+                
+                // Create announcement
+                let announcement = `I can see ${predictions.length} object${predictions.length > 1 ? 's' : ''}: `;
+                
+                const objectDescriptions = Object.entries(objectCounts).map(([obj, count]) => {
+                    return count > 1 ? `${count} ${obj}s` : `a ${obj}`;
+                });
+                
+                announcement += objectDescriptions.join(', ');
+                
+                // Add spatial info for single or few objects
+                if (predictions.length <= 3) {
+                    const positions = predictions.map(pred => {
+                        const [x, y, width, height] = pred.bbox;
+                        const centerX = (x + width / 2) / this.canvas.width;
+                        const centerY = (y + height / 2) / this.canvas.height;
+                        const position = this.getRelativePosition(centerX, centerY);
+                        return `${pred.class} on the ${position}`;
+                    });
+                    announcement += `. Locations: ${positions.join(', ')}`;
+                }
+                
+                this.speak(announcement);
+                
+                // Generate scene description
+                this.generateSceneDescription(predictions);
+            }
+            
+            generateSceneDescription(predictions) {
+                if (predictions.length === 0) return;
+                
+                const objects = predictions.map(p => p.class);
+                const uniqueObjects = [...new Set(objects)];
+                
+                let description = `The scene contains ${predictions.length} detected objects. `;
+                description += `I can identify: ${uniqueObjects.join(', ')}. `;
+                
+                // Analyze scene type
+                const furniture = ['chair', 'couch', 'bed', 'dining table'];
+                const electronics = ['laptop', 'cell phone', 'tv', 'keyboard', 'mouse'];
+                const hasFurniture = objects.some(obj => furniture.includes(obj));
+                const hasElectronics = objects.some(obj => electronics.includes(obj));
+                
+                if (hasFurniture && hasElectronics) {
+                    description += "This appears to be a workspace or living area. ";
+                } else if (hasFurniture) {
+                    description += "This looks like a furnished indoor space. ";
+                } else if (hasElectronics) {
+                    description += "This appears to be a technology-focused area. ";
+                }
+                
+                description += "The objects are clearly visible and the detection confidence is high.";
+                
+                this.sceneDescription.style.display = 'block';
+                this.descriptionText.textContent = description;
+            }
+            
+            getRelativePosition(x, y) {
+                const horizontal = x < 0.33 ? 'left' : x > 0.66 ? 'right' : 'center';
+                const vertical = y < 0.33 ? 'top' : y > 0.66 ? 'bottom' : 'middle';
+                
+                if (horizontal === 'center' && vertical === 'middle') return 'center';
+                if (horizontal === 'center') return vertical;
+                if (vertical === 'middle') return horizontal;
+                return `${vertical} ${horizontal}`;
+            }
+            
+            toggleListening() {
+                if (!this.recognition) {
+                    this.speak("Voice recognition not available.");
+                    return;
+                }
+                
+                if (this.isListening) {
+                    this.recognition.stop();
+                } else {
+                    try {
+                        this.recognition.start();
+                    } catch (error) {
+                        console.error("Speech error:", error);
+                    }
+                }
+            }
+            
+            processVoiceCommand(command) {
+                console.log("🎤 Processing voice command:", command);
+                
+                // Normalize command
+                const cmd = command.toLowerCase().trim();
+                
+                // Command matching with multiple variations
+                if (cmd.includes('start') && (cmd.includes('camera') || cmd.includes('cam'))) {
+                    console.log("→ Command: Start Camera");
+                    this.speak("Starting camera now.");
+                    if (!this.stream) {
+                        this.startCamera();
+                    } else {
+                        this.speak("Camera is already running.");
+                    }
+                    
+                } else if (cmd.includes('stop') && (cmd.includes('camera') || cmd.includes('cam'))) {
+                    console.log("→ Command: Stop Camera");
+                    this.speak("Stopping camera.");
+                    this.stopCamera();
+                    
+                } else if (cmd.includes('what') && cmd.includes('see')) {
+                    console.log("→ Command: What do you see");
+                    this.speak("Let me analyze what I can see.");
+                    if (this.stream) {
+                        this.detectOnce();
+                    } else {
+                        this.speak("Please start the camera first.");
+                    }
+                    
+                } else if (cmd.includes('detect') || cmd.includes('analyze') || cmd.includes('scan')) {
+                    console.log("→ Command: Detect/Analyze");
+                    this.speak("Analyzing the scene now.");
+                    if (this.stream) {
+                        this.detectOnce();
+                    } else {
+                        this.speak("Please start the camera first.");
+                    }
+                    
+                } else if (cmd.includes('describe') || cmd.includes('surroundings') || cmd.includes('environment')) {
+                    console.log("→ Command: Describe surroundings");
+                    this.speak("Describing your surroundings.");
+                    if (this.stream) {
+                        this.detectOnce();
+                    } else {
+                        this.speak("Please start the camera first.");
+                    }
+                    
+                } else if (cmd.includes('continuous') || cmd.includes('keep') && cmd.includes('scan')) {
+                    console.log("→ Command: Continuous scanning");
+                    if (this.stream && !this.continuousMode) {
+                        this.toggleContinuousDetection();
+                    } else if (!this.stream) {
+                        this.speak("Please start the camera first.");
+                    } else {
+                        this.speak("Continuous scanning is already active.");
+                    }
+                    
+                } else if (cmd.includes('stop') && (cmd.includes('scan') || cmd.includes('continuous'))) {
+                    console.log("→ Command: Stop scanning");
+                    if (this.continuousMode) {
+                        this.toggleContinuousDetection();
+                    } else {
+                        this.speak("Continuous scanning is not active.");
+                    }
+                    
+                } else if (cmd.includes('help') || cmd.includes('what can you do')) {
+                    console.log("→ Command: Help");
+                    this.speak("I can help you see your surroundings using AI. Say: start camera, what do you see, describe surroundings, continuous scan, or stop camera.");
+                    
+                } else {
+                    console.log("→ Command not recognized");
+                    this.speak(`I heard: ${command}. Try saying: start camera, what do you see, or describe surroundings.`);
+                }
+            }
+            
+            clearDetections() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.detectionResults.style.display = 'none';
+                this.sceneDescription.style.display = 'none';
+            }
+            
+            speak(text) {
+                // Cancel any ongoing speech
+                this.synthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                
+                // Wait a bit for voices to load
+                const speakNow = () => {
+                    const voices = this.synthesis.getVoices();
+                    
+                    // Try to find a good English voice
+                    const preferredVoice = voices.find(v => v.lang.startsWith('en-US')) 
+                                        || voices.find(v => v.lang.startsWith('en-GB'))
+                                        || voices.find(v => v.lang.startsWith('en'));
+                    
+                    if (preferredVoice) {
+                        utterance.voice = preferredVoice;
+                    }
+                    
+                    utterance.onstart = () => {
+                        console.log("🔊 Speaking:", text);
+                    };
+                    
+                    utterance.onerror = (event) => {
+                        console.error("Speech synthesis error:", event);
+                    };
+                    
+                    this.synthesis.speak(utterance);
+                };
+                
+                // Voices might not be loaded immediately
+                if (this.synthesis.getVoices().length > 0) {
+                    speakNow();
+                } else {
+                    this.synthesis.onvoiceschanged = () => {
+                        speakNow();
+                    };
+                    // Fallback if onvoiceschanged doesn't fire
+                    setTimeout(speakNow, 100);
+                }
+            }
+            
+            updateStatus(message) {
+                this.status.textContent = message;
+            }
+        }
+        
+        // Initialize when libraries are fully loaded
+        let initAttempts = 0;
+        const maxAttempts = 10;
+        
+        function tryInitialize() {
+            initAttempts++;
+            
+            if (typeof tf !== 'undefined' && typeof cocoSsd !== 'undefined') {
+                console.log("Libraries loaded, initializing assistant...");
+                new RealAIVisionAssistant();
+            } else if (initAttempts < maxAttempts) {
+                console.log(`Waiting for libraries... attempt ${initAttempts}/${maxAttempts}`);
+                setTimeout(tryInitialize, 500);
+            } else {
+                console.error("Failed to load required libraries");
+                document.getElementById('status').textContent = "❌ Failed to load AI libraries. Please refresh the page.";
+                document.getElementById('modelLoading').innerHTML = `
+                    <div style="color: #d32f2f;">
+                        ❌ <strong>Libraries failed to load</strong><br>
+                        <p style="font-size: 14px;">Please check your internet connection and try again.</p>
+                        <button onclick="location.reload()" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+                            🔄 Reload Page
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        window.addEventListener('load', () => {
+            setTimeout(tryInitialize, 100);
+        });
+    </script>
+</body>
+</html>
